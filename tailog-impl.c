@@ -123,7 +123,7 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
     fseek(f, pivotOffset*blocksize, SEEK_SET);
     char buf[READSIZE];
     int chunk_offset = 0;
-    printf("AT %i \n",pivotOffset*blocksize);
+    //printf("AT %i \n",pivotOffset*blocksize);
     fflush(stdout);
     char *tmp, *copy;
     int res, len;
@@ -147,19 +147,19 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
                     // If we have it and it is at the beginning
                     if(chunk_offset - line_length(buf) == 0){
                         // Go Up the file
-                        printf("HERE: '%s'",buf);
+                        //printf("HERE: '%s'",buf);
                         return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
                     }else{
                         // We have it!
-                        printf("HERE IT IS!: '%s'",buf);
-                        return chunk_offset - line_length(buf);
+                        //printf("HERE IT IS!: '%s'",buf);
+                        return (chunk_offset - line_length(buf))+pivotOffset*blocksize;
                     }
                 }
             }
         }
     }
     // Go Down through the file
-    printf("HERE: '%s'",buf);
+    //printf("HERE: '%s'",buf);
     return binaryFind(pivotOffset+1,j,blocksize,f,t,cnt+1);
 }
 
@@ -207,7 +207,7 @@ int find_position(char *filename, struct tm *t){
     int blocksize = st.st_blksize;
     int filesize = st.st_size;
     int chunks = st.st_blocks;
-    printf("Filesize %i, Blocksize %i, Blocks %i \n",filesize,blocksize,chunks);
+    //printf("Filesize %i, Blocksize %i, Blocks %i \n",filesize,blocksize,chunks);
 
     // Check if at the last block we have data
     int last_block_offset = check_valid(f,filesize,blocksize,t);
@@ -217,37 +217,46 @@ int find_position(char *filename, struct tm *t){
     }
 
     // Look for upper limit
-    printf("Blocks division %f - %i\n",(double)filesize/(double)blocksize, (int)ceil((double)filesize/(double)blocksize));
-    printf("Estimated size %i vs size %i\n",(int)ceil((double)filesize/(double)blocksize)*blocksize,filesize);
+    //printf("Blocks division %f - %i\n",(double)filesize/(double)blocksize, (int)ceil((double)filesize/(double)blocksize));
+    //printf("Estimated size %i vs size %i\n",(int)ceil((double)filesize/(double)blocksize)*blocksize,filesize);
     int position = binaryFind(0, (int)ceil((double)filesize/(double)blocksize), blocksize, f, t,1);
     fclose(f);
+    //printf("Position found at %i\n", position);
     return position;
-    //return EXIT_SUCCESS;
 }
 
-int do_ips(char **argv, struct tm *t){
+int do_search(char **argv, struct tm *t, int specific){
     int result = find_position(argv[1], t);
     if(result == EXIT_FAILURE){
         return EXIT_FAILURE;
     }
-    return EXIT_SUCCESS;
-}
 
-int do_doms(char **argv,struct tm *t){
-    char** args = malloc(2 * sizeof(char*));
-    printf("%s",argv[1]);
-    args[0] = argv[1];
-    args[1] = NULL;
-    printf("%s",command[0]);
-    if(execvp(command[0],args) == -1){
-        printf("Failed\n");
-        free(args);
-        return EXIT_FAILURE;
+    FILE *f = fopen(argv[1],"r");
+    fseek(f,result,SEEK_SET);
+    char buf[READSIZE];
+    char *copy, *tmp;
+    while(fgets(buf, READSIZE, f) != NULL){
+        if(specific){
+            copy = strdup(buf);
+            tmp = strsep(&copy,",");
+            tmp = strsep(&copy,",");
+            tmp = strsep(&copy,",");
+            if(specific == 4){
+                if(strstr(copy,argv[4]) != NULL){
+                    printf("%s",buf);
+                }
+            }else if(specific == 3){
+                if(strstr(tmp,argv[4]) != NULL){
+                    printf("%s",buf);
+                }
+            }
+        }else{
+            printf("%s",buf);
+        }
     }
-    free(args);
+
     return EXIT_SUCCESS;
 }
-
 
 int main(int argc, char **argv){
 
@@ -272,12 +281,10 @@ int main(int argc, char **argv){
     if(argc > 3){
         // IP
         if(strcmp(argv[3],options[0]) == 0){
-            printf("Print IPs\n");
-            return do_ips(argv,timeinfo);
+            return do_search(argv,timeinfo, argc >= 4 ? 3 : 0);
         // Dom
         }else if(strcmp(argv[3],options[1]) == 0){
-            printf("Print Doms\n");
-            return do_doms(argv,timeinfo);
+            return do_search(argv,timeinfo, argc >= 4 ? 4 : 0);
         }else{
             printf("Option not valid!\n");
             return EXIT_FAILURE;
