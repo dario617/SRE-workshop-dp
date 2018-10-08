@@ -150,13 +150,10 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
                     }
                 }else if(res == 1){
                     // If (t < value of line) then go back
-                    printf("La fecha de la linea es mas grande %i %i FIN %s\n",i,j,buf);
-                    // Hay que ir hacia atras
                     return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
                 }
             }else if(res == 1){
                 // If (t < value of line) then go back
-                printf("La fecha de la linea es mas grande %i %i FIN %s\n",i,j,buf);
                 return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
             }
         }
