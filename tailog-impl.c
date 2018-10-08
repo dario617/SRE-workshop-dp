@@ -115,22 +115,24 @@ int checkdate(char* s,struct tm *t){
  **/
 int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
 
+    /*
     if(cnt >= 20){
         return EXIT_FAILURE;
     }
+    */
+   if(i>=j){
+       return -1;
+   }
 
     int pivotOffset = i+(j-i)/2;
     fseek(f, pivotOffset*blocksize, SEEK_SET);
     char buf[READSIZE];
     int chunk_offset = 0;
-    //printf("AT %i \n",pivotOffset*blocksize);
-    fflush(stdout);
     char *tmp, *copy;
     int res, len;
     // Find upperlimit
     while(chunk_offset < blocksize){
         fgets(buf, READSIZE, f);
-        //printf("HERE: '%s'", fgets(buf, READSIZE, f));
         chunk_offset = chunk_offset + line_length(buf);
 
         copy = strdup(buf);
@@ -145,30 +147,28 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
                 res = checktime(tmp,t);
                 if(res == 0){
                     // If we have it and it is at the beginning
-                    if(chunk_offset - line_length(buf) == 0){
-                        // Go Up the file
-                        //printf("HERE: '%s'",buf);
-                        return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
-                    }else{
-                        // We have it!
-                        //printf("HERE IT IS!: '%s'",buf);
+                    int lowerResult = binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
+                    if(lowerResult == -1){
                         return (chunk_offset - line_length(buf))+pivotOffset*blocksize;
+                    }else{
+                        return lowerResult;
                     }
                 }
             }
         }
     }
     // Go Down through the file
-    //printf("HERE: '%s'",buf);
     return binaryFind(pivotOffset+1,j,blocksize,f,t,cnt+1);
 }
 
 int check_valid(FILE *f, int filesize, int blocksize, struct tm *t){
     char buf[READSIZE];
+    // Move to the last block
     fseek(f,filesize-blocksize,SEEK_SET);
     int chunk_offset = 0;
     char *tmp, *copy;
     int res, len;
+    // Look for a valid value
     while(chunk_offset < blocksize){
         fgets(buf, READSIZE, f);
         chunk_offset = chunk_offset + line_length(buf);
@@ -196,6 +196,9 @@ int check_valid(FILE *f, int filesize, int blocksize, struct tm *t){
     return chunk_offset;
 }
 
+/**
+ * Returns the position of a valid time or the end if none is found
+ **/
 int find_position(char *filename, struct tm *t){
     struct stat st;
     FILE *f = fopen(filename,"r");
@@ -207,27 +210,24 @@ int find_position(char *filename, struct tm *t){
     int blocksize = st.st_blksize;
     int filesize = st.st_size;
     int chunks = st.st_blocks;
-    //printf("Filesize %i, Blocksize %i, Blocks %i \n",filesize,blocksize,chunks);
 
     // Check if at the last block we have data
     int last_block_offset = check_valid(f,filesize,blocksize,t);
+    // If we read the all then there's nothing
     if(last_block_offset == blocksize || last_block_offset == 0){
         printf("No data\n");
         return EXIT_FAILURE;
     }
 
     // Look for upper limit
-    //printf("Blocks division %f - %i\n",(double)filesize/(double)blocksize, (int)ceil((double)filesize/(double)blocksize));
-    //printf("Estimated size %i vs size %i\n",(int)ceil((double)filesize/(double)blocksize)*blocksize,filesize);
     int position = binaryFind(0, (int)ceil((double)filesize/(double)blocksize), blocksize, f, t,1);
     fclose(f);
-    //printf("Position found at %i\n", position);
     return position;
 }
 
 int do_search(char **argv, struct tm *t, int specific){
     int result = find_position(argv[1], t);
-    if(result == EXIT_FAILURE){
+    if(result == EXIT_FAILURE || result == -1){
         return EXIT_FAILURE;
     }
 
