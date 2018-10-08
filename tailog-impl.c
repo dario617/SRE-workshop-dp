@@ -115,11 +115,6 @@ int checkdate(char* s,struct tm *t){
  **/
 int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
 
-    /*
-    if(cnt >= 20){
-        return EXIT_FAILURE;
-    }
-    */
    if(i>=j){
        return -1;
    }
@@ -153,7 +148,16 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
                     }else{
                         return lowerResult;
                     }
+                }else if(res == 1){
+                    // If (t < value of line) then go back
+                    printf("La fecha de la linea es mas grande %i %i FIN %s\n",i,j,buf);
+                    // Hay que ir hacia atras
+                    return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
                 }
+            }else if(res == 1){
+                // If (t < value of line) then go back
+                printf("La fecha de la linea es mas grande %i %i FIN %s\n",i,j,buf);
+                return binaryFind(i,pivotOffset-1,blocksize,f,t,cnt+1);
             }
         }
     }
@@ -161,6 +165,9 @@ int binaryFind(int i, int j, int blocksize, FILE *f, struct tm *t, int cnt){
     return binaryFind(pivotOffset+1,j,blocksize,f,t,cnt+1);
 }
 
+/**
+ * FUNCION DEPRECADA
+ **/
 int check_valid(FILE *f, int filesize, int blocksize, struct tm *t){
     char buf[READSIZE];
     // Move to the last block
@@ -210,14 +217,6 @@ int find_position(char *filename, struct tm *t){
     int blocksize = st.st_blksize;
     int filesize = st.st_size;
     int chunks = st.st_blocks;
-
-    // Check if at the last block we have data
-    int last_block_offset = check_valid(f,filesize,blocksize,t);
-    // If we read the all then there's nothing
-    if(last_block_offset == blocksize || last_block_offset == 0){
-        printf("No data\n");
-        return EXIT_FAILURE;
-    }
 
     // Look for upper limit
     int position = binaryFind(0, (int)ceil((double)filesize/(double)blocksize), blocksize, f, t,1);
@@ -270,25 +269,28 @@ int main(int argc, char **argv){
     time_t t = time(NULL) - atoi(argv[2])*60;
     struct tm *timeinfo = localtime(&t);
     // Example test
+    /*
     timeinfo->tm_year = 116;
     timeinfo->tm_mon = 10;
-    timeinfo->tm_mday = 28;
+    timeinfo->tm_mday = 13;
     timeinfo->tm_hour = 10;
-    timeinfo->tm_min = 59;
+    timeinfo->tm_min = 59;*/
     printf ("Looking for time and date: %i-%i-%i,%i:%i:%i\n", timeinfo->tm_year+1900, timeinfo->tm_mon+1, timeinfo->tm_mday, timeinfo->tm_hour, timeinfo->tm_min,timeinfo->tm_sec);
 
     // Specific search
     if(argc > 3){
         // IP
         if(strcmp(argv[3],options[0]) == 0){
-            return do_search(argv,timeinfo, argc >= 4 ? 3 : 0);
+            return do_search(argv,timeinfo,3);
         // Dom
         }else if(strcmp(argv[3],options[1]) == 0){
-            return do_search(argv,timeinfo, argc >= 4 ? 4 : 0);
+            return do_search(argv,timeinfo,4);
         }else{
             printf("Option not valid!\n");
             return EXIT_FAILURE;
         }
+    }else{
+        return do_search(argv,timeinfo,0);
     }
     return EXIT_SUCCESS;
 }
